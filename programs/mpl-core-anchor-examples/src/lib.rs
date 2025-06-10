@@ -10,7 +10,7 @@ use anchor_lang::prelude::*;
 pub use constants::*;
 pub use instructions::*;
 
-declare_id!("2CTGnypSjA6gYxwhKxb1HVhMuaGx5QCe4qGvzsF5Kqtt");
+declare_id!("2zQrtHGoXjzs22YTbRK7DtD6Gpvvg6UZWpY1HyrCkfJp");
 
 #[program]
 pub mod mpl_core_anchor_wrapper {
@@ -20,8 +20,15 @@ pub mod mpl_core_anchor_wrapper {
         create_v1::CreateV1::handler(ctx, args)
     }
 
-    pub fn create_v1_with_vault_pda(ctx: Context<CreateV1WithVaultPda>, args: CreateV1WithVaultPdaArgs) -> Result<()> {
+    pub fn create_v1_with_vault_pda(
+        ctx: Context<CreateV1WithVaultPda>,
+        args: CreateV1WithVaultPdaArgs,
+    ) -> Result<()> {
         create_v1_with_vault_pda::CreateV1WithVaultPda::handler(ctx, args)
+    }
+
+    pub fn stake(ctx: Context<Stake>, args: StakeArgs) -> Result<()> {
+        stake::Stake::handler(ctx, args)
     }
 
     pub fn create_collection_v1(

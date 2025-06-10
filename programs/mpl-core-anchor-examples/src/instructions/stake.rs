@@ -1,11 +1,17 @@
 use crate::error::WrapperError as err;
 use anchor_lang::prelude::*;
 use mpl_core::types::{DataState, PluginAuthorityPair};
-use mpl_core::ID as MPL_CORE_ID;
 const PREFIX: &str = "mpl-core-execute";
+use mpl_core::{
+    ID as MPL_CORE_ID,
+    fetch_plugin,
+    accounts::{BaseAssetV1, BaseCollectionV1}, 
+    instructions::{AddPluginV1CpiBuilder, RemovePluginV1CpiBuilder, UpdatePluginV1CpiBuilder}, 
+    types::{Attribute, Attributes, FreezeDelegate, Plugin, PluginAuthority, PluginType, UpdateAuthority}, 
+};
 
 #[derive(Accounts)]
-pub struct CreateV1WithVaultPda<'info> {
+pub struct Stake<'info> {
     /// The address of the new asset.
     #[account(mut)]
     pub asset: Signer<'info>,
@@ -53,7 +59,7 @@ pub struct CreateV1WithVaultPda<'info> {
 }
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
-pub struct CreateV1WithVaultPdaArgs {
+pub struct StakeArgs {
     pub name: String,
     pub uri: String,
     // TODO: Add plugin_authority_pair
@@ -62,10 +68,10 @@ pub struct CreateV1WithVaultPdaArgs {
     pub nft_type: u8,  // 0 = 5% fee, 1 = 4% fee
 }
 
-impl<'info> CreateV1WithVaultPda<'info> {
+impl<'info> Stake<'info> {
     pub fn handler(
-        ctx: Context<CreateV1WithVaultPda>,
-        args: CreateV1WithVaultPdaArgs,
+        ctx: Context<Stake>,
+        args: StakeArgs,
     ) -> Result<()> {
         mpl_core::instructions::CreateV1Cpi {
             asset: &ctx.accounts.asset.to_account_info(),

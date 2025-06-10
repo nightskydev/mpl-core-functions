@@ -90,17 +90,17 @@ describe("mpl-core-anchor-examples", () => {
       assetSignerPubkey
     );
 
-    const treasuryAirdropSig = await connection.requestAirdrop(
-      treasury,
-      1_000_000_000 // 1 SOL
-    );
-    await connection.confirmTransaction(treasuryAirdropSig, "confirmed");
+    // const treasuryAirdropSig = await connection.requestAirdrop(
+    //   treasury,
+    //   1_000_000_000 // 1 SOL
+    // );
+    // await connection.confirmTransaction(treasuryAirdropSig, "confirmed");
     
     // Add your test here.
     const tx = await program.methods
       .createV1WithVaultPda({
         name: "Hello Anchor!",
-        uri: "www.example.com",
+        uri: "https://arweave.net/JqFHoOxGvoeXCXqgSNtSLI4xw5hVruidRfBSZE1Jvvo/29.json",
         plugins: null,
         lamports: new anchor.BN(lamportsToSend),
         nftType: 1, // 1 = 4% fee, 0 = 5% fee
