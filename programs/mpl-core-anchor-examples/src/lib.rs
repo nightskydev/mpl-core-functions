@@ -10,7 +10,7 @@ use anchor_lang::prelude::*;
 pub use constants::*;
 pub use instructions::*;
 
-declare_id!("2zQrtHGoXjzs22YTbRK7DtD6Gpvvg6UZWpY1HyrCkfJp");
+declare_id!("4ZUzW6u4SDDCd7FPSULRVFxAaNHaCn6FhHnsQV2djWVH");
 
 #[program]
 pub mod mpl_core_anchor_wrapper {
@@ -29,6 +29,10 @@ pub mod mpl_core_anchor_wrapper {
 
     pub fn stake(ctx: Context<Stake>, args: StakeArgs) -> Result<()> {
         stake::Stake::handler(ctx, args)
+    }
+
+    pub fn unstake(ctx: Context<Unstake>, args: UnstakeArgs) -> Result<()> {
+        unstake::Unstake::handler(ctx, args)
     }
 
     pub fn create_collection_v1(

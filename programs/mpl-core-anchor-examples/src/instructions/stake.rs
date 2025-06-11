@@ -3,59 +3,36 @@ use anchor_lang::prelude::*;
 use mpl_core::types::{DataState, PluginAuthorityPair};
 const PREFIX: &str = "mpl-core-execute";
 use mpl_core::{
-    ID as MPL_CORE_ID,
+    accounts::{BaseAssetV1, BaseCollectionV1},
     fetch_plugin,
-    accounts::{BaseAssetV1, BaseCollectionV1}, 
-    instructions::{AddPluginV1CpiBuilder, RemovePluginV1CpiBuilder, UpdatePluginV1CpiBuilder}, 
-    types::{Attribute, Attributes, FreezeDelegate, Plugin, PluginAuthority, PluginType, UpdateAuthority}, 
+    instructions::{AddPluginV1CpiBuilder, RemovePluginV1CpiBuilder, UpdatePluginV1CpiBuilder},
+    types::{
+        Attribute, Attributes, FreezeDelegate, Plugin, PluginAuthority, PluginType, UpdateAuthority,
+    },
+    ID as MPL_CORE_ID,
 };
 
 #[derive(Accounts)]
 pub struct Stake<'info> {
-    /// The address of the new asset.
-    #[account(mut)]
-    pub asset: Signer<'info>,
-
-    /// The address of the new asset.
-    #[account(mut)]
-    pub asset_signer: Option<AccountInfo<'info>>,
-
-    /// The collection to which the asset belongs.
-    /// CHECK: Checked in mpl-core.
-    #[account(mut)]
-    pub collection: Option<AccountInfo<'info>>,
-
-    /// The authority signing for creation.
-    pub authority: Option<Signer<'info>>,
-
-    /// The account paying for the storage fees.
+    pub owner: Signer<'info>,
+    pub update_authority: Signer<'info>,
     #[account(mut)]
     pub payer: Signer<'info>,
-
-    /// The owner of the new asset. Defaults to the authority if not present.
-    /// CHECK: Checked in mpl-core.
-    pub owner: Option<AccountInfo<'info>>,
-
-    /// The authority on the new asset.
-    /// CHECK: Checked in mpl-core.
-    pub update_authority: Option<AccountInfo<'info>>,
-
-    /// The system program.
+    #[account(
+        mut,
+        has_one = owner,
+        constraint = asset.update_authority == UpdateAuthority::Collection(collection.key()),
+    )]
+    pub asset: Account<'info, BaseAssetV1>,
+    #[account(
+        mut,
+        has_one = update_authority
+    )]
+    pub collection: Account<'info, BaseCollectionV1>,
+    #[account(address = MPL_CORE_ID)]
+    /// CHECK: this will be checked by core
+    pub core_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
-
-    /// The SPL Noop program.
-    /// CHECK: Checked in mpl-core.
-    pub log_wrapper: Option<AccountInfo<'info>>,
-
-    /// The MPL Core program.
-    /// CHECK: Checked in mpl-core.
-    #[account(address = mpl_core::ID)]
-    pub mpl_core: AccountInfo<'info>,
-
-    /// The treasury wallet to receive the fee.
-    /// CHECK:
-    #[account(mut)]
-    pub treasury: AccountInfo<'info>,
 }
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
@@ -69,82 +46,85 @@ pub struct StakeArgs {
 }
 
 impl<'info> Stake<'info> {
-    pub fn handler(
-        ctx: Context<Stake>,
-        args: StakeArgs,
-    ) -> Result<()> {
-        mpl_core::instructions::CreateV1Cpi {
-            asset: &ctx.accounts.asset.to_account_info(),
-            collection: ctx.accounts.collection.as_ref(),
-            authority: ctx.accounts.authority.as_deref(),
-            payer: &ctx.accounts.payer.to_account_info(),
-            owner: ctx.accounts.owner.as_ref(),
-            update_authority: ctx.accounts.update_authority.as_ref(),
-            system_program: &ctx.accounts.system_program.to_account_info(),
-            log_wrapper: ctx.accounts.log_wrapper.as_ref(),
-            __program: &ctx.accounts.mpl_core,
-            __args: mpl_core::instructions::CreateV1InstructionArgs {
-                data_state: DataState::AccountState,
-                name: args.name,
-                uri: args.uri,
-                plugins: args.plugins,
-            },
-        }
-        .invoke()?;
+    pub fn handler(ctx: Context<Stake>, args: StakeArgs) -> Result<()> {
+        // Check if the asset has the attribute plugin already on
+        match fetch_plugin::<BaseAssetV1, Attributes>(
+            &ctx.accounts.asset.to_account_info(),
+            mpl_core::types::PluginType::Attributes,
+        ) {
+            Ok((_, fetched_attribute_list, _)) => {
+                // If yes, check if the asset is already staked, and if the staking attribute are already initialized
+                let mut attribute_list: Vec<Attribute> = Vec::new();
+                let mut is_initialized: bool = false;
 
-        let (pda, _bump) = Pubkey::find_program_address(
-            &[PREFIX.as_bytes(), ctx.accounts.asset.key.as_ref()],
-            &MPL_CORE_ID,
-        );
-
-        match ctx.accounts.asset_signer.as_ref() {
-            Some(asset_signer_info) => {
-                if pda != *asset_signer_info.key {
-                    return Err(err::InvalidExecutePda.into());
+                for attribute in fetched_attribute_list.attribute_list {
+                    if attribute.key == "staked" {
+                        require!(attribute.value == "0", err::AlreadyStaked);
+                        attribute_list.push(Attribute {
+                            key: "staked".to_string(),
+                            value: Clock::get()?.unix_timestamp.to_string(),
+                        });
+                        is_initialized = true;
+                    } else {
+                        attribute_list.push(attribute);
+                    }
                 }
+
+                if !is_initialized {
+                    attribute_list.push(Attribute {
+                        key: "staked".to_string(),
+                        value: Clock::get()?.unix_timestamp.to_string(),
+                    });
+                    attribute_list.push(Attribute {
+                        key: "staked_time".to_string(),
+                        value: 0.to_string(),
+                    });
+                }
+
+                UpdatePluginV1CpiBuilder::new(&ctx.accounts.core_program.to_account_info())
+                    .asset(&ctx.accounts.asset.to_account_info())
+                    .collection(Some(&ctx.accounts.collection.to_account_info()))
+                    .payer(&ctx.accounts.payer.to_account_info())
+                    .authority(Some(&ctx.accounts.update_authority.to_account_info()))
+                    .system_program(&ctx.accounts.system_program.to_account_info())
+                    .plugin(Plugin::Attributes(Attributes { attribute_list }))
+                    .invoke()?;
             }
-            None => {
-                return Err(err::InvalidExecutePda.into());
+            Err(_) => {
+                // If not, add the attribute plugin to the asset
+                AddPluginV1CpiBuilder::new(&ctx.accounts.core_program.to_account_info())
+                    .asset(&ctx.accounts.asset.to_account_info())
+                    .collection(Some(&ctx.accounts.collection.to_account_info()))
+                    .payer(&ctx.accounts.payer.to_account_info())
+                    .authority(Some(&ctx.accounts.update_authority.to_account_info()))
+                    .system_program(&ctx.accounts.system_program.to_account_info())
+                    .plugin(Plugin::Attributes(Attributes {
+                        attribute_list: vec![
+                            Attribute {
+                                key: "staked".to_string(),
+                                value: Clock::get()?.unix_timestamp.to_string(),
+                            },
+                            Attribute {
+                                key: "staked_time".to_string(),
+                                value: 0.to_string(),
+                            },
+                        ],
+                    }))
+                    .init_authority(PluginAuthority::UpdateAuthority)
+                    .invoke()?;
             }
         }
 
-        let payer = &ctx.accounts.payer.to_account_info();
-        let asset_signer = ctx
-            .accounts
-            .asset_signer
-            .as_ref()
-            .ok_or(err::InvalidExecutePda)?;
-
-        let treasury = &ctx.accounts.treasury;
-        let transfer_amount = args.lamports;
-        let fee_percent = match args.nft_type {
-            0 => 5,
-            1 => 4,
-            _ => return Err(err::InvalidNftType.into()),
-        };
-        let fee = transfer_amount * fee_percent / 100;
-        let total_amount = transfer_amount + fee;
-        // Ensure payer has enough lamports (optional, for safety)
-        require!(
-            **payer.lamports.borrow() >= total_amount,
-            err::InsufficientFunds
-        );
-
-        // Transfer to asset signer PDA
-        let ix_asset = anchor_lang::solana_program::system_instruction::transfer(
-            payer.key,
-            asset_signer.key,
-            transfer_amount,
-        );
-        anchor_lang::solana_program::program::invoke(
-            &ix_asset,
-            &[payer.clone(), asset_signer.clone()],
-        )?;
-
-        // Transfer fee to treasury
-        let ix_fee =
-            anchor_lang::solana_program::system_instruction::transfer(payer.key, treasury.key, fee);
-        anchor_lang::solana_program::program::invoke(&ix_fee, &[payer.clone(), treasury.clone()])?;
+        // Freeze the asset
+        AddPluginV1CpiBuilder::new(&ctx.accounts.core_program.to_account_info())
+            .asset(&ctx.accounts.asset.to_account_info())
+            .collection(Some(&ctx.accounts.collection.to_account_info()))
+            .payer(&ctx.accounts.payer.to_account_info())
+            .authority(Some(&ctx.accounts.owner.to_account_info()))
+            .system_program(&ctx.accounts.system_program.to_account_info())
+            .plugin(Plugin::FreezeDelegate(FreezeDelegate { frozen: true }))
+            .init_authority(PluginAuthority::UpdateAuthority)
+            .invoke()?;
 
         Ok(())
     }
