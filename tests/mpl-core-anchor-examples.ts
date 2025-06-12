@@ -2,6 +2,11 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import { MplCoreAnchorWrapper } from "../target/types/mpl_core_anchor_wrapper";
 import {
+  createInitializeMintInstruction,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
+import * as assert from "assert";
+import {
   createV1,
   createV2,
   mplCore,
@@ -43,6 +48,88 @@ describe("mpl-core-anchor-examples", () => {
 
   const program = anchor.workspace
     .MplCoreAnchorWrapper as Program<MplCoreAnchorWrapper>;
+
+  it("Initializes admin state", async () => {
+    const provider = anchor.AnchorProvider.env();
+    anchor.setProvider(provider);
+    // Generate keypairs
+    const mint = anchor.web3.Keypair.generate();
+    const treasury = anchor.web3.Keypair.generate();
+
+    // Derive PDAs
+    const [vaultPda, _] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("vault")],
+      program.programId
+    );
+    const [adminStatePda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [Buffer.from("state"), Buffer.from("admin")],
+      program.programId
+    );
+
+    // Airdrop SOL to payer and treasury
+    const connection = provider.connection;
+    const payer = provider.wallet.publicKey;
+    await connection.requestAirdrop(payer, 2 * anchor.web3.LAMPORTS_PER_SOL);
+    await connection.requestAirdrop(
+      treasury.publicKey,
+      anchor.web3.LAMPORTS_PER_SOL
+    );
+
+    // Create mint account
+    const mintRent = await connection.getMinimumBalanceForRentExemption(82);
+    const createMintIx = anchor.web3.SystemProgram.createAccount({
+      fromPubkey: payer,
+      newAccountPubkey: mint.publicKey,
+      space: 82,
+      lamports: mintRent,
+      programId: TOKEN_PROGRAM_ID,
+    });
+    const initMintIx = createInitializeMintInstruction(
+      mint.publicKey,
+      0,
+      payer,
+      null
+    );
+    const txMint = new anchor.web3.Transaction().add(createMintIx, initMintIx);
+    await provider.sendAndConfirm(txMint, [mint]);
+
+    // Call initializeAdmin
+    await program.methods
+      .initializeAdmin({
+        riskBasedApy: [1, 2, 3], // Example APY values
+        stakingPeriodRange: [
+          new anchor.BN(60 * 60 * 24),
+          new anchor.BN(60 * 60 * 24 * 30),
+        ], // 1 day to 30 days
+        withdrawAvailableAfter: new anchor.BN(60 * 60 * 24 * 7), // 7 days
+      })
+      .accountsPartial({
+        mint: mint.publicKey,
+        vault: vaultPda,
+        adminState: adminStatePda,
+        treasury: treasury.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+      })
+      .signers([])
+      .rpc();
+
+    // Fetch and check AdminState
+    const adminState = await program.account.adminState.fetch(adminStatePda);
+    assert.deepEqual(adminState.riskBasedApy, [1, 2, 3]);
+    assert.deepEqual(
+      adminState.stakingPeriodRange.map((x: anchor.BN) => x.toNumber()),
+      [60 * 60 * 24, 60 * 60 * 24 * 30]
+    );
+    assert.equal(
+      adminState.withdrawAvailableAfter.toNumber(),
+      60 * 60 * 24 * 7
+    );
+    assert.ok(adminState.tokenMint.equals(mint.publicKey));
+    assert.ok(adminState.admin.equals(payer));
+    assert.ok(adminState.treasury.equals(treasury.publicKey));
+    console.log("AdminState:", adminState);
+  });
 
   // it("Can create an Asset", async () => {
   //   const asset = anchor.web3.Keypair.generate();
