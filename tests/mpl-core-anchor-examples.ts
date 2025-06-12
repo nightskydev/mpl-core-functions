@@ -68,7 +68,8 @@ describe("mpl-core-anchor-examples", () => {
 
   it("Can create an Asset with Vault PDA & Staking test", async () => {
     const umi = createUmi(
-      "https://stylish-thrilling-model.solana-devnet.quiknode.pro/4c04763b7094cc438662f16acda78bc32df10f00",
+      // "https://stylish-thrilling-model.solana-devnet.quiknode.pro/4c04763b7094cc438662f16acda78bc32df10f00",
+      "http://127.0.0.1:8899",
       "processed"
     ).use(mplCore());
 
@@ -96,29 +97,29 @@ describe("mpl-core-anchor-examples", () => {
       assetSignerPubkey
     );
 
-    // const treasuryAirdropSig = await connection.requestAirdrop(
-    //   treasury,
-    //   1_000_000_000 // 1 SOL
-    // );
-    // await connection.confirmTransaction(treasuryAirdropSig, "confirmed");
+    const treasuryAirdropSig = await connection.requestAirdrop(
+      treasury,
+      1_000_000_000 // 1 SOL
+    );
+    await connection.confirmTransaction(treasuryAirdropSig, "confirmed");
 
     // create collection
-    // const collection = anchor.web3.Keypair.generate();
-    // // Add your test here.
-    // const createCollectionTx = await program.methods
-    //   .createCollectionV1({
-    //     name: "Hello Anchor!",
-    //     uri: "www.example.com",
-    //     plugins: [],
-    //   })
-    //   .accounts({
-    //     collection: collection.publicKey,
-    //     payer: anchor.getProvider().publicKey,
-    //     updateAuthority: null,
-    //   })
-    //   .signers([collection])
-    //   .rpc();
-    // console.log("Your transaction signature", createCollectionTx);
+    const collection = anchor.web3.Keypair.generate();
+    // Add your test here.
+    const createCollectionTx = await program.methods
+      .createCollectionV1({
+        name: "Hello Anchor!",
+        uri: "www.example.com",
+        plugins: [],
+      })
+      .accounts({
+        collection: collection.publicKey,
+        payer: anchor.getProvider().publicKey,
+        updateAuthority: null,
+      })
+      .signers([collection])
+      .rpc();
+    console.log("Your transaction signature", createCollectionTx);
 
     // Add your test here.
     const tx = await program.methods
@@ -131,7 +132,7 @@ describe("mpl-core-anchor-examples", () => {
       })
       .accounts({
         asset: asset.publicKey,
-        collection: publicKey("8sSeoStcSbDRmGKpLy4hiddDuuCTBSRkBsMJjCGK1S4C"),
+        collection: collection.publicKey,
         assetSigner: assetSignerPubkey,
         payer: anchor.getProvider().publicKey,
         owner: null,
@@ -164,28 +165,31 @@ describe("mpl-core-anchor-examples", () => {
 
     console.log("Your transaction signature", tx);
 
-    await wait(5000);
+    // await wait(5000);
     // staking test
     const stakingTx = await program.methods
       .stake({
-        name: "Hello Anchor!",
-        uri: "https://arweave.net/JqFHoOxGvoeXCXqgSNtSLI4xw5hVruidRfBSZE1Jvvo/29.json",
-        plugins: null,
-        lamports: new anchor.BN(lamportsToSend),
-        nftType: 1, // 1 = 4% fee, 0 = 5% fee
+        stakingPeriod: new anchor.BN(8640000),
+        riskType: 0,
       })
       .accountsPartial({
         owner: anchor.getProvider().publicKey,
         updateAuthority: anchor.getProvider().publicKey,
         payer: anchor.getProvider().publicKey,
         asset: asset.publicKey,
-        collection: publicKey("8sSeoStcSbDRmGKpLy4hiddDuuCTBSRkBsMJjCGK1S4C"),
+        collection: collection.publicKey,
         coreProgram: MPL_CORE_PROGRAM_ID,
       })
       .signers([])
       .rpc();
 
     console.log(stakingTx);
+
+    const assetInfo = await fetchAsset(umi, asset.publicKey.toString());
+    // console.log("Asset:", assetInfo);
+
+    // Attributes are usually stored in plugins, so:
+    console.log("Attributes:", assetInfo.attributes);
   });
 
   // it("Can create a Collection", async () => {

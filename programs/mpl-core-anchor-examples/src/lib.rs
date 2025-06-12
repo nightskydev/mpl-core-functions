@@ -10,11 +10,15 @@ use anchor_lang::prelude::*;
 pub use constants::*;
 pub use instructions::*;
 
-declare_id!("4ZUzW6u4SDDCd7FPSULRVFxAaNHaCn6FhHnsQV2djWVH");
+declare_id!("FKcfgcuw9uRYsCaSR2G5TKzKrf4B3DNNyZzcCAnF8zdT");
 
 #[program]
 pub mod mpl_core_anchor_wrapper {
     use super::*;
+
+    pub fn initialize_admin(ctx: Context<InitializeAdmin>, args: InitializeAdminArgs) -> Result<()> {
+        initialize_admin::InitializeAdmin::handler(ctx, args)
+    }
 
     pub fn create_v1(ctx: Context<CreateV1>, args: CreateV1Args) -> Result<()> {
         create_v1::CreateV1::handler(ctx, args)

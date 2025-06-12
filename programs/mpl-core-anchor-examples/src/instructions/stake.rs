@@ -37,12 +37,8 @@ pub struct Stake<'info> {
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct StakeArgs {
-    pub name: String,
-    pub uri: String,
-    // TODO: Add plugin_authority_pair
-    pub plugins: Option<Vec<PluginAuthorityPair>>,
-    pub lamports: u64, // <-- Add this line
-    pub nft_type: u8,  // 0 = 5% fee, 1 = 4% fee
+    pub staking_period: u64, // in seconds
+    pub risk_type: u8,       // 0 = low risk, 1 = medium risk, 2 = high risk
 }
 
 impl<'info> Stake<'info> {
@@ -64,6 +60,14 @@ impl<'info> Stake<'info> {
                             key: "staked".to_string(),
                             value: Clock::get()?.unix_timestamp.to_string(),
                         });
+                        attribute_list.push(Attribute {
+                            key: "staking_period".to_string(),
+                            value: args.staking_period.to_string(),
+                        });
+                        attribute_list.push(Attribute {
+                            key: "risk_type".to_string(),
+                            value: args.risk_type.to_string(),
+                        });
                         is_initialized = true;
                     } else {
                         attribute_list.push(attribute);
@@ -78,6 +82,14 @@ impl<'info> Stake<'info> {
                     attribute_list.push(Attribute {
                         key: "staked_time".to_string(),
                         value: 0.to_string(),
+                    });
+                    attribute_list.push(Attribute {
+                        key: "staking_period".to_string(),
+                        value: args.staking_period.to_string(),
+                    });
+                    attribute_list.push(Attribute {
+                        key: "risk_type".to_string(),
+                        value: args.risk_type.to_string(),
                     });
                 }
 
@@ -107,6 +119,14 @@ impl<'info> Stake<'info> {
                             Attribute {
                                 key: "staked_time".to_string(),
                                 value: 0.to_string(),
+                            },
+                            Attribute {
+                                key: "staking_period".to_string(),
+                                value: args.staking_period.to_string(),
+                            },
+                            Attribute {
+                                key: "risk_type".to_string(),
+                                value: args.risk_type.to_string(),
                             },
                         ],
                     }))
