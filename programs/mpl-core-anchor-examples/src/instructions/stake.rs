@@ -1,7 +1,9 @@
 use crate::error::WrapperError as err;
 use anchor_lang::prelude::*;
-use mpl_core::types::{DataState, PluginAuthorityPair};
-const PREFIX: &str = "mpl-core-execute";
+// const PREFIX: &str = "mpl-core-execute";
+
+// Import AdminState from its module (update the path if needed)
+// use crate::instructions::initialize_admin::AdminState;
 use mpl_core::{
     accounts::{BaseAssetV1, BaseCollectionV1},
     fetch_plugin,
@@ -15,6 +17,12 @@ use mpl_core::{
 #[derive(Accounts)]
 pub struct Stake<'info> {
     pub owner: Signer<'info>,
+    /// The address of the new asset.
+    // #[account(
+    //     seeds = [b"state".as_ref(), b"admin".as_ref()],
+    //     bump,
+    // )]
+    // pub admin_state: Box<Account<'info, AdminState>>,
     pub update_authority: Signer<'info>,
     #[account(mut)]
     pub payer: Signer<'info>,

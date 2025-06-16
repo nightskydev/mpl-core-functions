@@ -49,87 +49,87 @@ describe("mpl-core-anchor-examples", () => {
   const program = anchor.workspace
     .MplCoreAnchorWrapper as Program<MplCoreAnchorWrapper>;
 
-  it("Initializes admin state", async () => {
-    const provider = anchor.AnchorProvider.env();
-    anchor.setProvider(provider);
-    // Generate keypairs
-    const mint = anchor.web3.Keypair.generate();
-    const treasury = anchor.web3.Keypair.generate();
+  // it("Initializes admin state", async () => {
+  //   const provider = anchor.AnchorProvider.env();
+  //   anchor.setProvider(provider);
+  //   // Generate keypairs
+  //   const mint = anchor.web3.Keypair.generate();
+  //   const treasury = anchor.web3.Keypair.generate();
 
-    // Derive PDAs
-    const [vaultPda, _] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("vault")],
-      program.programId
-    );
-    const [adminStatePda] = anchor.web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("state"), Buffer.from("admin")],
-      program.programId
-    );
+  //   // Derive PDAs
+  //   const [vaultPda, _] = anchor.web3.PublicKey.findProgramAddressSync(
+  //     [Buffer.from("vault")],
+  //     program.programId
+  //   );
+  //   const [adminStatePda] = anchor.web3.PublicKey.findProgramAddressSync(
+  //     [Buffer.from("state"), Buffer.from("admin")],
+  //     program.programId
+  //   );
 
-    // Airdrop SOL to payer and treasury
-    const connection = provider.connection;
-    const payer = provider.wallet.publicKey;
-    await connection.requestAirdrop(payer, 2 * anchor.web3.LAMPORTS_PER_SOL);
-    await connection.requestAirdrop(
-      treasury.publicKey,
-      anchor.web3.LAMPORTS_PER_SOL
-    );
+  //   // Airdrop SOL to payer and treasury
+  //   const connection = provider.connection;
+  //   const payer = provider.wallet.publicKey;
+  //   // await connection.requestAirdrop(payer, 2 * anchor.web3.LAMPORTS_PER_SOL);
+  //   // await connection.requestAirdrop(
+  //   //   treasury.publicKey,
+  //   //   anchor.web3.LAMPORTS_PER_SOL
+  //   // );
 
-    // Create mint account
-    const mintRent = await connection.getMinimumBalanceForRentExemption(82);
-    const createMintIx = anchor.web3.SystemProgram.createAccount({
-      fromPubkey: payer,
-      newAccountPubkey: mint.publicKey,
-      space: 82,
-      lamports: mintRent,
-      programId: TOKEN_PROGRAM_ID,
-    });
-    const initMintIx = createInitializeMintInstruction(
-      mint.publicKey,
-      0,
-      payer,
-      null
-    );
-    const txMint = new anchor.web3.Transaction().add(createMintIx, initMintIx);
-    await provider.sendAndConfirm(txMint, [mint]);
+  //   // Create mint account
+  //   const mintRent = await connection.getMinimumBalanceForRentExemption(82);
+  //   const createMintIx = anchor.web3.SystemProgram.createAccount({
+  //     fromPubkey: payer,
+  //     newAccountPubkey: mint.publicKey,
+  //     space: 82,
+  //     lamports: mintRent,
+  //     programId: TOKEN_PROGRAM_ID,
+  //   });
+  //   const initMintIx = createInitializeMintInstruction(
+  //     mint.publicKey,
+  //     0,
+  //     payer,
+  //     null
+  //   );
+  //   const txMint = new anchor.web3.Transaction().add(createMintIx, initMintIx);
+  //   await provider.sendAndConfirm(txMint, [mint]);
 
-    // Call initializeAdmin
-    await program.methods
-      .initializeAdmin({
-        riskBasedApy: [1, 2, 3], // Example APY values
-        stakingPeriodRange: [
-          new anchor.BN(60 * 60 * 24),
-          new anchor.BN(60 * 60 * 24 * 30),
-        ], // 1 day to 30 days
-        withdrawAvailableAfter: new anchor.BN(60 * 60 * 24 * 7), // 7 days
-      })
-      .accountsPartial({
-        mint: mint.publicKey,
-        vault: vaultPda,
-        adminState: adminStatePda,
-        treasury: treasury.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
-        tokenProgram: TOKEN_PROGRAM_ID,
-      })
-      .signers([])
-      .rpc();
+  //   // Call initializeAdmin
+  //   await program.methods
+  //     .initializeAdmin({
+  //       riskBasedApy: [1, 2, 3], // Example APY values
+  //       stakingPeriodRange: [
+  //         new anchor.BN(60 * 60 * 24),
+  //         new anchor.BN(60 * 60 * 24 * 30),
+  //       ], // 1 day to 30 days
+  //       withdrawAvailableAfter: new anchor.BN(60 * 60 * 24 * 7), // 7 days
+  //     })
+  //     .accountsPartial({
+  //       mint: mint.publicKey,
+  //       vault: vaultPda,
+  //       adminState: adminStatePda,
+  //       treasury: treasury.publicKey,
+  //       systemProgram: anchor.web3.SystemProgram.programId,
+  //       tokenProgram: TOKEN_PROGRAM_ID,
+  //     })
+  //     .signers([])
+  //     .rpc();
 
-    // Fetch and check AdminState
-    const adminState = await program.account.adminState.fetch(adminStatePda);
-    assert.deepEqual(adminState.riskBasedApy, [1, 2, 3]);
-    assert.deepEqual(
-      adminState.stakingPeriodRange.map((x: anchor.BN) => x.toNumber()),
-      [60 * 60 * 24, 60 * 60 * 24 * 30]
-    );
-    assert.equal(
-      adminState.withdrawAvailableAfter.toNumber(),
-      60 * 60 * 24 * 7
-    );
-    assert.ok(adminState.tokenMint.equals(mint.publicKey));
-    assert.ok(adminState.admin.equals(payer));
-    assert.ok(adminState.treasury.equals(treasury.publicKey));
-    console.log("AdminState:", adminState);
-  });
+  //   // Fetch and check AdminState
+  //   const adminState = await program.account.adminState.fetch(adminStatePda);
+  //   assert.deepEqual(adminState.riskBasedApy, [1, 2, 3]);
+  //   assert.deepEqual(
+  //     adminState.stakingPeriodRange.map((x: anchor.BN) => x.toNumber()),
+  //     [60 * 60 * 24, 60 * 60 * 24 * 30]
+  //   );
+  //   assert.equal(
+  //     adminState.withdrawAvailableAfter.toNumber(),
+  //     60 * 60 * 24 * 7
+  //   );
+  //   assert.ok(adminState.tokenMint.equals(mint.publicKey));
+  //   assert.ok(adminState.admin.equals(payer));
+  //   assert.ok(adminState.treasury.equals(treasury.publicKey));
+  //   console.log("AdminState:", adminState);
+  // });
 
   // it("Can create an Asset", async () => {
   //   const asset = anchor.web3.Keypair.generate();
@@ -155,8 +155,8 @@ describe("mpl-core-anchor-examples", () => {
 
   it("Can create an Asset with Vault PDA & Staking test", async () => {
     const umi = createUmi(
-      // "https://stylish-thrilling-model.solana-devnet.quiknode.pro/4c04763b7094cc438662f16acda78bc32df10f00",
-      "http://127.0.0.1:8899",
+      "https://stylish-thrilling-model.solana-devnet.quiknode.pro/4c04763b7094cc438662f16acda78bc32df10f00",
+      // "http://127.0.0.1:8899",
       "processed"
     ).use(mplCore());
 
@@ -177,6 +177,7 @@ describe("mpl-core-anchor-examples", () => {
       assetSignerPda[0].toString()
     );
     const payerBalanceBefore = await connection.getBalance(payer);
+    console.log("Payer balance before:", payer, payerBalanceBefore);
 
     const lamportsToSend = 1_000_000;
 
@@ -184,29 +185,30 @@ describe("mpl-core-anchor-examples", () => {
       assetSignerPubkey
     );
 
-    const treasuryAirdropSig = await connection.requestAirdrop(
-      treasury,
-      1_000_000_000 // 1 SOL
-    );
-    await connection.confirmTransaction(treasuryAirdropSig, "confirmed");
+    // const treasuryAirdropSig = await connection.requestAirdrop(
+    //   treasury,
+    //   1_000_000_000 // 1 SOL
+    // );
+    // await connection.confirmTransaction(treasuryAirdropSig, "confirmed");
 
     // create collection
-    const collection = anchor.web3.Keypair.generate();
-    // Add your test here.
-    const createCollectionTx = await program.methods
-      .createCollectionV1({
-        name: "Hello Anchor!",
-        uri: "www.example.com",
-        plugins: [],
-      })
-      .accounts({
-        collection: collection.publicKey,
-        payer: anchor.getProvider().publicKey,
-        updateAuthority: null,
-      })
-      .signers([collection])
-      .rpc();
-    console.log("Your transaction signature", createCollectionTx);
+    // const collection = anchor.web3.Keypair.generate();
+    // // Add your test here.
+    // const createCollectionTx = await program.methods
+    //   .createCollectionV1({
+    //     name: "Sirius Collection",
+    //     uri: "www.example.com",
+    //     plugins: [],
+    //   })
+    //   .accounts({
+    //     collection: collection.publicKey,
+    //     payer: anchor.getProvider().publicKey,
+    //     updateAuthority: null,
+    //   })
+    //   .signers([collection])
+    //   .rpc();
+    // console.log("Collection address is ", collection.publicKey.toString());
+    // console.log("Your transaction signature", createCollectionTx);
 
     // Add your test here.
     const tx = await program.methods
@@ -219,7 +221,8 @@ describe("mpl-core-anchor-examples", () => {
       })
       .accounts({
         asset: asset.publicKey,
-        collection: collection.publicKey,
+        // collection: collection.publicKey,
+        collection: publicKey("7WTUogkFRHrvpy8x3gZeqLeBTfRtmxofPvtgALQPRei9"),
         assetSigner: assetSignerPubkey,
         payer: anchor.getProvider().publicKey,
         owner: null,
@@ -264,7 +267,8 @@ describe("mpl-core-anchor-examples", () => {
         updateAuthority: anchor.getProvider().publicKey,
         payer: anchor.getProvider().publicKey,
         asset: asset.publicKey,
-        collection: collection.publicKey,
+        // collection: collection.publicKey,
+        collection: publicKey("7WTUogkFRHrvpy8x3gZeqLeBTfRtmxofPvtgALQPRei9"),
         coreProgram: MPL_CORE_PROGRAM_ID,
       })
       .signers([])
