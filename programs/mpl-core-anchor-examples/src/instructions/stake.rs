@@ -1,12 +1,15 @@
 use crate::error::WrapperError as err;
 use anchor_lang::prelude::*;
-// const PREFIX: &str = "mpl-core-execute";
+const PREFIX: &str = "mpl-core-execute";
 use crate::state::*;
 
 use mpl_core::{
     accounts::{BaseAssetV1, BaseCollectionV1},
     fetch_plugin,
-    instructions::{AddPluginV1CpiBuilder, RemovePluginV1CpiBuilder, UpdatePluginV1CpiBuilder},
+    instructions::{
+        AddPluginV1CpiBuilder, ExecuteV1CpiBuilder, RemovePluginV1CpiBuilder,
+        UpdatePluginV1CpiBuilder,
+    },
     types::{
         Attribute, Attributes, FreezeDelegate, Plugin, PluginAuthority, PluginType, UpdateAuthority,
     },
@@ -20,8 +23,14 @@ pub struct Stake<'info> {
     #[account(
         seeds = [b"state".as_ref(), b"admin".as_ref()],
         bump,
+        has_one = treasury,
     )]
     pub update_authority: Box<Account<'info, AdminState>>,
+
+    /// CHECK:
+    #[account(mut)]
+    pub asset_signer: AccountInfo<'info>,
+
     // pub update_authority: Signer<'info>,
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -36,6 +45,8 @@ pub struct Stake<'info> {
         has_one = update_authority
     )]
     pub collection: Account<'info, BaseCollectionV1>,
+    /// CHECK: This is the treasury wallet that will receive rewards
+    pub treasury: UncheckedAccount<'info>,
     #[account(address = MPL_CORE_ID)]
     /// CHECK: this will be checked by core
     pub core_program: UncheckedAccount<'info>,
@@ -46,6 +57,7 @@ pub struct Stake<'info> {
 pub struct StakeArgs {
     pub staking_period: u64, // in seconds
     pub risk_type: u8,       // 0 = low risk, 1 = medium risk, 2 = high risk
+    pub instruction_data: Vec<u8>, // additional data for the instruction
 }
 
 impl<'info> Stake<'info> {
@@ -163,6 +175,29 @@ impl<'info> Stake<'info> {
             .plugin(Plugin::FreezeDelegate(FreezeDelegate { frozen: true }))
             .init_authority(PluginAuthority::UpdateAuthority)
             .invoke_signed(&[admin_state_seeds])?;
+
+        let (pda, _bump) = Pubkey::find_program_address(
+            &[
+                PREFIX.as_bytes(),
+                ctx.accounts.asset.to_account_info().key().as_ref(),
+            ],
+            &MPL_CORE_ID,
+        );
+
+        if pda != *ctx.accounts.asset_signer.key {
+            return Err(err::InvalidExecutePda.into());
+        }
+
+        ExecuteV1CpiBuilder::new(&ctx.accounts.core_program.to_account_info())
+            .asset(&ctx.accounts.asset.to_account_info())
+            .collection(Some(&ctx.accounts.collection.to_account_info()))
+            .asset_signer(&ctx.accounts.asset_signer)
+            .payer(&ctx.accounts.payer.to_account_info())
+            .authority(Some(&ctx.accounts.owner.to_account_info()))
+            .system_program(&ctx.accounts.system_program.to_account_info())
+            .program_id(&ctx.accounts.system_program.to_account_info())
+            .instruction_data(args.instruction_data)
+            .invoke()?;
 
         Ok(())
     }

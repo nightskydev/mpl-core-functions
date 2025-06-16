@@ -5,6 +5,13 @@ import {
   createInitializeMintInstruction,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  SystemProgram,
+  LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
 import * as assert from "assert";
 import {
   createV1,
@@ -231,18 +238,28 @@ describe("mpl-core-anchor-examples", () => {
 
     console.log("Your transaction signature", tx);
 
+    let instruction = SystemProgram.transfer({
+      fromPubkey: assetSignerPubkey,
+      toPubkey: treasury.publicKey,
+      lamports: 0.1 * LAMPORTS_PER_SOL, // 0.1 SOL each
+    });
+
+    let instructionData = instruction.data;
+
     // await wait(5000);
     // staking test
     const stakingTx = await program.methods
       .stake({
         stakingPeriod: new anchor.BN(86400 * 100),
         riskType: 0,
+        instructionData
       })
       .accountsPartial({
         owner: user.publicKey,
         updateAuthority: adminStatePda,
         payer: user.publicKey,
         asset: asset.publicKey,
+        assetSigner: assetSignerPubkey,
         collection: collection.publicKey,
         coreProgram: MPL_CORE_PROGRAM_ID,
       })
