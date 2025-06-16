@@ -16,6 +16,9 @@ pub mod unstake;
 pub mod get_reward;
 pub mod update_collection_plugin_v1;
 pub mod update_plugin_v1;
+pub mod init_escrow;
+pub mod capture;
+pub mod release;
 
 pub use add_collection_plugin_v1::*;
 pub use add_plugin_v1::*;
@@ -35,3 +38,6 @@ pub use unstake::*;
 pub use get_reward::*;
 pub use update_collection_plugin_v1::*;
 pub use update_plugin_v1::*;
+pub use init_escrow::*;
+pub use capture::*;
+pub use release::*;

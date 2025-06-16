@@ -9,8 +9,8 @@ use mpl_core::{
     accounts::{BaseAssetV1, BaseCollectionV1},
     fetch_plugin,
     instructions::{
-        AddPluginV1CpiBuilder, ExecuteV1CpiBuilder, RemovePluginV1CpiBuilder, ExecuteV1Cpi,
-        UpdatePluginV1CpiBuilder, ExecuteV1InstructionData, ExecuteV1InstructionArgs
+        AddPluginV1CpiBuilder,
+        UpdatePluginV1CpiBuilder,
     },
     types::{
         Attribute, Attributes, FreezeDelegate, Plugin, PluginAuthority, PluginType, UpdateAuthority,
