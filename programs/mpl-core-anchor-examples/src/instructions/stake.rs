@@ -3,12 +3,14 @@ use anchor_lang::prelude::*;
 const PREFIX: &str = "mpl-core-execute";
 use crate::state::*;
 
+use anchor_lang::solana_program::{program::invoke_signed, system_instruction};
+
 use mpl_core::{
     accounts::{BaseAssetV1, BaseCollectionV1},
     fetch_plugin,
     instructions::{
-        AddPluginV1CpiBuilder, ExecuteV1CpiBuilder, RemovePluginV1CpiBuilder,
-        UpdatePluginV1CpiBuilder,
+        AddPluginV1CpiBuilder, ExecuteV1CpiBuilder, RemovePluginV1CpiBuilder, ExecuteV1Cpi,
+        UpdatePluginV1CpiBuilder, ExecuteV1InstructionData, ExecuteV1InstructionArgs
     },
     types::{
         Attribute, Attributes, FreezeDelegate, Plugin, PluginAuthority, PluginType, UpdateAuthority,
@@ -55,8 +57,8 @@ pub struct Stake<'info> {
 
 #[derive(AnchorDeserialize, AnchorSerialize)]
 pub struct StakeArgs {
-    pub staking_period: u64, // in seconds
-    pub risk_type: u8,       // 0 = low risk, 1 = medium risk, 2 = high risk
+    pub staking_period: u64,       // in seconds
+    pub risk_type: u8,             // 0 = low risk, 1 = medium risk, 2 = high risk
     pub instruction_data: Vec<u8>, // additional data for the instruction
 }
 
@@ -188,16 +190,49 @@ impl<'info> Stake<'info> {
             return Err(err::InvalidExecutePda.into());
         }
 
-        ExecuteV1CpiBuilder::new(&ctx.accounts.core_program.to_account_info())
-            .asset(&ctx.accounts.asset.to_account_info())
-            .collection(Some(&ctx.accounts.collection.to_account_info()))
-            .asset_signer(&ctx.accounts.asset_signer)
-            .payer(&ctx.accounts.payer.to_account_info())
-            .authority(Some(&ctx.accounts.owner.to_account_info()))
-            .system_program(&ctx.accounts.system_program.to_account_info())
-            .program_id(&ctx.accounts.system_program.to_account_info())
-            .instruction_data(args.instruction_data)
-            .invoke()?;
+        let instruction = system_instruction::transfer(
+            &ctx.accounts.asset_signer.key,
+            &ctx.accounts.treasury.key,
+            1000,
+        );
+        
+        // let instruction_data = instruction.data.try_to_vec().unwrap();
+        // let mut data = ExecuteV1InstructionData::new().try_to_vec().unwrap();
+        // let mut __args = ExecuteV1InstructionArgs {
+        //     instruction_data: Some(instruction_data.clone())
+        //         .expect("instruction_data is not set"),
+        // };
+        // let mut args = __args.try_to_vec().unwrap();
+        // data.append(&mut args);
+
+        // ExecuteV1CpiBuilder::new(&ctx.accounts.core_program.to_account_info())
+        //     .asset(&ctx.accounts.asset.to_account_info())
+        //     .collection(Some(&ctx.accounts.collection.to_account_info()))
+        //     .asset_signer(&ctx.accounts.asset_signer)
+        //     .payer(&ctx.accounts.payer.to_account_info())
+        //     .authority(Some(&ctx.accounts.owner.to_account_info()))
+        //     .system_program(&ctx.accounts.system_program.to_account_info())
+        //     .program_id(&ctx.accounts.system_program.to_account_info())
+        //     .instruction_data(instruction.data)
+        //     // .add_remaining_account(&ctx.accounts.asset_signer, true, false)
+        //     .add_remaining_account(&ctx.accounts.owner, true, true)
+        //     .add_remaining_account(&ctx.accounts.treasury, true, false)
+        //     .invoke()?;
+
+        // ExecuteV1Cpi {
+        //     asset: &ctx.accounts.asset.to_account_info(),
+        //     asset_signer: &ctx.accounts.asset_signer,
+        //     program_id: &&ctx.accounts.core_program.to_account_info(),
+        //     collection: Some(&ctx.accounts.collection.to_account_info()),
+        //     authority: Some(&ctx.accounts.owner.to_account_info()),
+        //     payer: &ctx.accounts.payer.to_account_info(),
+        //     system_program: &ctx.accounts.system_program.to_account_info(),
+        //     __program: &ctx.accounts.system_program.to_account_info(),
+        //     __args: ExecuteV1InstructionArgs {
+        //         instruction_data: instruction_data.clone(),
+        //     },
+        // }
+        // .invoke()?;
 
         Ok(())
     }

@@ -257,11 +257,12 @@ describe("mpl-core-anchor-examples", () => {
       .accountsPartial({
         owner: user.publicKey,
         updateAuthority: adminStatePda,
+        collection: collection.publicKey,
         payer: user.publicKey,
         asset: asset.publicKey,
         assetSigner: assetSignerPubkey,
-        collection: collection.publicKey,
         coreProgram: MPL_CORE_PROGRAM_ID,
+        systemProgram: SystemProgram.programId,
       })
       .signers([user])
       .rpc();
