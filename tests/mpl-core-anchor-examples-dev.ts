@@ -57,6 +57,7 @@ describe("mpl-core-anchor-examples", () => {
     // Generate keypairs
     const mint = anchor.web3.Keypair.generate();
     const treasury = anchor.web3.Keypair.generate();
+    const user = anchor.web3.Keypair.generate();
 
     // Derive PDAs
     const [vaultPda, _] = anchor.web3.PublicKey.findProgramAddressSync(
@@ -70,7 +71,12 @@ describe("mpl-core-anchor-examples", () => {
 
     // Airdrop SOL to payer and treasury
     const payer = provider.wallet.publicKey;
+
     await connection.requestAirdrop(payer, 2 * anchor.web3.LAMPORTS_PER_SOL);
+    await connection.requestAirdrop(
+      user.publicKey,
+      anchor.web3.LAMPORTS_PER_SOL * 100
+    );
     await connection.requestAirdrop(
       treasury.publicKey,
       anchor.web3.LAMPORTS_PER_SOL
@@ -165,6 +171,7 @@ describe("mpl-core-anchor-examples", () => {
 
     // create collection
     const collection = anchor.web3.Keypair.generate();
+    console.log("////////////////////////////////////////");
     // Add your test here.
     const createCollectionTx = await program.methods
       .createCollectionV1({
@@ -172,10 +179,10 @@ describe("mpl-core-anchor-examples", () => {
         uri: "www.example.com",
         plugins: [],
       })
-      .accounts({
+      .accountsPartial({
         collection: collection.publicKey,
-        payer: anchor.getProvider().publicKey,
-        updateAuthority: null,
+        adminState: adminStatePda,
+        admin: anchor.getProvider().publicKey,
       })
       .signers([collection])
       .rpc();
@@ -194,13 +201,12 @@ describe("mpl-core-anchor-examples", () => {
         asset: asset.publicKey,
         collection: collection.publicKey,
         assetSigner: assetSignerPubkey,
-        payer: anchor.getProvider().publicKey,
+        payer: user.publicKey,
         owner: null,
         updateAuthority: null,
-        treasury: treasury.publicKey,
         logWrapper: null,
       })
-      .signers([asset])
+      .signers([asset, user])
       .rpc();
     console.log("asset publickey ", asset.publicKey.toString());
 
@@ -233,14 +239,14 @@ describe("mpl-core-anchor-examples", () => {
         riskType: 0,
       })
       .accountsPartial({
-        owner: anchor.getProvider().publicKey,
-        updateAuthority: anchor.getProvider().publicKey,
-        payer: anchor.getProvider().publicKey,
+        owner: user.publicKey,
+        updateAuthority: adminStatePda,
+        payer: user.publicKey,
         asset: asset.publicKey,
         collection: collection.publicKey,
         coreProgram: MPL_CORE_PROGRAM_ID,
       })
-      .signers([])
+      .signers([user])
       .rpc();
 
     console.log(stakingTx);

@@ -1,9 +1,8 @@
 use crate::error::WrapperError as err;
 use anchor_lang::prelude::*;
 // const PREFIX: &str = "mpl-core-execute";
+use crate::state::*;
 
-// Import AdminState from its module (update the path if needed)
-// use crate::instructions::initialize_admin::AdminState;
 use mpl_core::{
     accounts::{BaseAssetV1, BaseCollectionV1},
     fetch_plugin,
@@ -18,12 +17,12 @@ use mpl_core::{
 pub struct Stake<'info> {
     pub owner: Signer<'info>,
     /// The address of the new asset.
-    // #[account(
-    //     seeds = [b"state".as_ref(), b"admin".as_ref()],
-    //     bump,
-    // )]
-    // pub admin_state: Box<Account<'info, AdminState>>,
-    pub update_authority: Signer<'info>,
+    #[account(
+        seeds = [b"state".as_ref(), b"admin".as_ref()],
+        bump,
+    )]
+    pub update_authority: Box<Account<'info, AdminState>>,
+    // pub update_authority: Signer<'info>,
     #[account(mut)]
     pub payer: Signer<'info>,
     #[account(
@@ -51,6 +50,9 @@ pub struct StakeArgs {
 
 impl<'info> Stake<'info> {
     pub fn handler(ctx: Context<Stake>, args: StakeArgs) -> Result<()> {
+        let admin_state_bump = ctx.bumps.update_authority; // Anchor auto-populates this if you use #[account(..., bump)]
+        let admin_state_seeds: &[&[u8]] =
+            &[b"state".as_ref(), b"admin".as_ref(), &[admin_state_bump]];
         // Check if the asset has the attribute plugin already on
         match fetch_plugin::<BaseAssetV1, Attributes>(
             &ctx.accounts.asset.to_account_info(),
@@ -108,7 +110,7 @@ impl<'info> Stake<'info> {
                     .authority(Some(&ctx.accounts.update_authority.to_account_info()))
                     .system_program(&ctx.accounts.system_program.to_account_info())
                     .plugin(Plugin::Attributes(Attributes { attribute_list }))
-                    .invoke()?;
+                    .invoke_signed(&[admin_state_seeds])?;
             }
             Err(_) => {
                 // If not, add the attribute plugin to the asset
@@ -139,7 +141,7 @@ impl<'info> Stake<'info> {
                         ],
                     }))
                     .init_authority(PluginAuthority::UpdateAuthority)
-                    .invoke()?;
+                    .invoke_signed(&[admin_state_seeds])?;
             }
         }
 
@@ -152,7 +154,7 @@ impl<'info> Stake<'info> {
             .system_program(&ctx.accounts.system_program.to_account_info())
             .plugin(Plugin::FreezeDelegate(FreezeDelegate { frozen: true }))
             .init_authority(PluginAuthority::UpdateAuthority)
-            .invoke()?;
+            .invoke_signed(&[admin_state_seeds])?;
 
         Ok(())
     }

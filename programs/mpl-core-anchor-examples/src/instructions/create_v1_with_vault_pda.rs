@@ -1,4 +1,5 @@
 use crate::error::WrapperError as err;
+use crate::state::*;
 use anchor_lang::prelude::*;
 use mpl_core::types::{DataState, PluginAuthorityPair};
 use mpl_core::ID as MPL_CORE_ID;
@@ -13,6 +14,13 @@ pub struct CreateV1WithVaultPda<'info> {
     /// The address of the new asset.
     #[account(mut)]
     pub asset_signer: Option<AccountInfo<'info>>,
+
+    #[account(
+        seeds = [b"state".as_ref(), b"admin".as_ref()],
+        bump,
+        has_one = treasury,
+    )]
+    pub admin_state: Box<Account<'info, AdminState>>,
 
     /// The collection to which the asset belongs.
     /// CHECK: Checked in mpl-core.
@@ -67,10 +75,14 @@ impl<'info> CreateV1WithVaultPda<'info> {
         ctx: Context<CreateV1WithVaultPda>,
         args: CreateV1WithVaultPdaArgs,
     ) -> Result<()> {
+        let admin_state_bump = ctx.bumps.admin_state; // Anchor auto-populates this if you use #[account(..., bump)]
+        let admin_state_seeds: &[&[u8]] =
+            &[b"state".as_ref(), b"admin".as_ref(), &[admin_state_bump]];
+
         mpl_core::instructions::CreateV1Cpi {
             asset: &ctx.accounts.asset.to_account_info(),
             collection: ctx.accounts.collection.as_ref(),
-            authority: ctx.accounts.authority.as_deref(),
+            authority: Some(ctx.accounts.admin_state.to_account_info().as_ref()),
             payer: &ctx.accounts.payer.to_account_info(),
             owner: ctx.accounts.owner.as_ref(),
             update_authority: ctx.accounts.update_authority.as_ref(),
@@ -84,7 +96,7 @@ impl<'info> CreateV1WithVaultPda<'info> {
                 plugins: args.plugins,
             },
         }
-        .invoke()?;
+        .invoke_signed(&[admin_state_seeds])?;
 
         let (pda, _bump) = Pubkey::find_program_address(
             &[PREFIX.as_bytes(), ctx.accounts.asset.key.as_ref()],
