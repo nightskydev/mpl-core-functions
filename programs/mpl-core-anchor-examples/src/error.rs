@@ -26,4 +26,6 @@ pub enum WrapperError {
     Underflow,
     #[msg("Overflow")]
     Overflow,
+    #[msg("Staking period is out of allowed range")]
+    InvalidStakingPeriod,
 }

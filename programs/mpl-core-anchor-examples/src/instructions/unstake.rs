@@ -35,18 +35,8 @@ pub struct Unstake<'info> {
     pub system_program: Program<'info, System>,
 }
 
-#[derive(AnchorDeserialize, AnchorSerialize)]
-pub struct UnstakeArgs {
-    pub name: String,
-    pub uri: String,
-    // TODO: Add plugin_authority_pair
-    pub plugins: Option<Vec<PluginAuthorityPair>>,
-    pub lamports: u64, // <-- Add this line
-    pub nft_type: u8,  // 0 = 5% fee, 1 = 4% fee
-}
-
 impl<'info> Unstake<'info> {
-    pub fn handler(ctx: Context<Unstake>, args: UnstakeArgs) -> Result<()> {
+    pub fn handler(ctx: Context<Unstake>) -> Result<()> {
        // Check if the asset has the attribute plugin already on
         match fetch_plugin::<BaseAssetV1, Attributes>(&ctx.accounts.asset.to_account_info(), mpl_core::types::PluginType::Attributes) {
             Ok((_, fetched_attribute_list, _)) => {

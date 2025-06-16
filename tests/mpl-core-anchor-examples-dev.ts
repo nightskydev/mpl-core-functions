@@ -106,7 +106,7 @@ describe("mpl-core-anchor-examples", () => {
         riskBasedApy: [1, 2, 3], // Example APY values
         stakingPeriodRange: [
           new anchor.BN(60 * 60 * 24),
-          new anchor.BN(60 * 60 * 24 * 30),
+          new anchor.BN(60 * 60 * 24 * 365),
         ], // 1 day to 30 days
         withdrawAvailableAfter: new anchor.BN(60 * 60 * 24 * 7), // 7 days
       })
@@ -126,7 +126,7 @@ describe("mpl-core-anchor-examples", () => {
     assert.deepEqual(adminState.riskBasedApy, [1, 2, 3]);
     assert.deepEqual(
       adminState.stakingPeriodRange.map((x: anchor.BN) => x.toNumber()),
-      [60 * 60 * 24, 60 * 60 * 24 * 30]
+      [60 * 60 * 24, 60 * 60 * 24 * 365]
     );
     assert.equal(
       adminState.withdrawAvailableAfter.toNumber(),
@@ -235,7 +235,7 @@ describe("mpl-core-anchor-examples", () => {
     // staking test
     const stakingTx = await program.methods
       .stake({
-        stakingPeriod: new anchor.BN(8640000),
+        stakingPeriod: new anchor.BN(86400 * 100),
         riskType: 0,
       })
       .accountsPartial({

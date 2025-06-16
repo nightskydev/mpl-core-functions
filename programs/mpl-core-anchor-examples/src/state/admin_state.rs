@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 #[account]
 pub struct AdminState {
-    pub risk_based_apy: [u8; 3], // 0 = low risk, 1 = medium risk, 2 = high risk
+    pub risk_based_apy: [u8; 3], 
     pub staking_period_range: [u64; 2], // in seconds
     pub withdraw_available_after: u64, // in seconds
     // The mint of the token used for staking rewards

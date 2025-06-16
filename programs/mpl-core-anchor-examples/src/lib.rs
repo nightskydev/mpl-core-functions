@@ -16,7 +16,10 @@ declare_id!("FKcfgcuw9uRYsCaSR2G5TKzKrf4B3DNNyZzcCAnF8zdT");
 pub mod mpl_core_anchor_wrapper {
     use super::*;
 
-    pub fn initialize_admin(ctx: Context<InitializeAdmin>, args: InitializeAdminArgs) -> Result<()> {
+    pub fn initialize_admin(
+        ctx: Context<InitializeAdmin>,
+        args: InitializeAdminArgs,
+    ) -> Result<()> {
         initialize_admin::InitializeAdmin::handler(ctx, args)
     }
 
@@ -35,8 +38,12 @@ pub mod mpl_core_anchor_wrapper {
         stake::Stake::handler(ctx, args)
     }
 
-    pub fn unstake(ctx: Context<Unstake>, args: UnstakeArgs) -> Result<()> {
-        unstake::Unstake::handler(ctx, args)
+    pub fn get_reward(ctx: Context<GetReward>) -> Result<()> {
+        get_reward::GetReward::handler(ctx)
+    }
+
+    pub fn unstake(ctx: Context<Unstake>) -> Result<()> {
+        unstake::Unstake::handler(ctx)
     }
 
     pub fn create_collection_v1(

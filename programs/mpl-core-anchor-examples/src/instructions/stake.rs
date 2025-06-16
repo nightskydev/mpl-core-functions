@@ -50,6 +50,14 @@ pub struct StakeArgs {
 
 impl<'info> Stake<'info> {
     pub fn handler(ctx: Context<Stake>, args: StakeArgs) -> Result<()> {
+        let admin_state = &ctx.accounts.update_authority;
+        let min_period = admin_state.staking_period_range[0];
+        let max_period = admin_state.staking_period_range[1];
+        require!(
+            args.staking_period >= min_period && args.staking_period <= max_period,
+            err::InvalidStakingPeriod
+        );
+
         let admin_state_bump = ctx.bumps.update_authority; // Anchor auto-populates this if you use #[account(..., bump)]
         let admin_state_seeds: &[&[u8]] =
             &[b"state".as_ref(), b"admin".as_ref(), &[admin_state_bump]];
@@ -90,8 +98,8 @@ impl<'info> Stake<'info> {
                         value: Clock::get()?.unix_timestamp.to_string(),
                     });
                     attribute_list.push(Attribute {
-                        key: "staked_time".to_string(),
-                        value: 0.to_string(),
+                        key: "last_rewarded_time".to_string(),
+                        value: Clock::get()?.unix_timestamp.to_string(),
                     });
                     attribute_list.push(Attribute {
                         key: "staking_period".to_string(),
@@ -127,8 +135,8 @@ impl<'info> Stake<'info> {
                                 value: Clock::get()?.unix_timestamp.to_string(),
                             },
                             Attribute {
-                                key: "staked_time".to_string(),
-                                value: 0.to_string(),
+                                key: "last_rewarded_time".to_string(),
+                                value: Clock::get()?.unix_timestamp.to_string(),
                             },
                             Attribute {
                                 key: "staking_period".to_string(),

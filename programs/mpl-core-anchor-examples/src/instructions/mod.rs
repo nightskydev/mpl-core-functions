@@ -13,6 +13,7 @@ pub mod transfer_v1;
 pub mod stake;
 pub mod initialize_admin;
 pub mod unstake;
+pub mod get_reward;
 pub mod update_collection_plugin_v1;
 pub mod update_plugin_v1;
 
@@ -31,5 +32,6 @@ pub use transfer_v1::*;
 pub use stake::*;
 pub use initialize_admin::*;
 pub use unstake::*;
+pub use get_reward::*;
 pub use update_collection_plugin_v1::*;
 pub use update_plugin_v1::*;
