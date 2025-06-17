@@ -11,6 +11,7 @@ use mpl_core::{
     instructions::{
         AddPluginV1CpiBuilder,
         UpdatePluginV1CpiBuilder,
+        ExecuteV1CpiBuilder
     },
     types::{
         Attribute, Attributes, FreezeDelegate, Plugin, PluginAuthority, PluginType, UpdateAuthority,
@@ -204,20 +205,22 @@ impl<'info> Stake<'info> {
         // };
         // let mut args = __args.try_to_vec().unwrap();
         // data.append(&mut args);
+        msg!("Executing instruction: {:?}", instruction.data);
+        // panic!("This is a test panic to check the instruction execution flow");
 
-        // ExecuteV1CpiBuilder::new(&ctx.accounts.core_program.to_account_info())
-        //     .asset(&ctx.accounts.asset.to_account_info())
-        //     .collection(Some(&ctx.accounts.collection.to_account_info()))
-        //     .asset_signer(&ctx.accounts.asset_signer)
-        //     .payer(&ctx.accounts.payer.to_account_info())
-        //     .authority(Some(&ctx.accounts.owner.to_account_info()))
-        //     .system_program(&ctx.accounts.system_program.to_account_info())
-        //     .program_id(&ctx.accounts.system_program.to_account_info())
-        //     .instruction_data(instruction.data)
-        //     // .add_remaining_account(&ctx.accounts.asset_signer, true, false)
-        //     .add_remaining_account(&ctx.accounts.owner, true, true)
-        //     .add_remaining_account(&ctx.accounts.treasury, true, false)
-        //     .invoke()?;
+        ExecuteV1CpiBuilder::new(&ctx.accounts.core_program.to_account_info())
+            .asset(&ctx.accounts.asset.to_account_info())
+            .collection(Some(&ctx.accounts.collection.to_account_info()))
+            .asset_signer(&ctx.accounts.asset_signer)
+            .payer(&ctx.accounts.payer.to_account_info())
+            .authority(Some(&ctx.accounts.owner.to_account_info()))
+            .system_program(&ctx.accounts.system_program.to_account_info())
+            .program_id(&ctx.accounts.system_program.to_account_info())
+            .instruction_data(instruction.data)
+            // .add_remaining_account(&ctx.accounts.asset_signer, true, false)
+            .add_remaining_account(&ctx.accounts.owner, true, true)
+            .add_remaining_account(&ctx.accounts.treasury, true, false)
+            .invoke()?;
 
         // ExecuteV1Cpi {
         //     asset: &ctx.accounts.asset.to_account_info(),

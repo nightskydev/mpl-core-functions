@@ -376,7 +376,7 @@ describe("mpl-core-anchor-examples", () => {
         associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
       })
       .signers([])
-      .rpc();
+      .rpc({ skipPreflight: true });
 
     // Fetch and check escrow account
     const escrowAccount = await provider.connection.getAccountInfo(escrowPda);
