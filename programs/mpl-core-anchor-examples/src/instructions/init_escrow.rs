@@ -35,8 +35,15 @@ pub struct InitEscrowV1Ctx<'info> {
     )]
     escrow: AccountInfo<'info>,
 
+    #[account(
+        seeds = [b"state".as_ref(), b"admin".as_ref()],
+        bump,
+        has_one = admin,
+    )]
+    pub admin_state: Box<Account<'info, AdminState>>,
+
     #[account(mut)]
-    authority: Signer<'info>,
+    admin: Signer<'info>,
 
     /// CHECK: We check the collection bellow and with escrow seeds
     collection: UncheckedAccount<'info>,
@@ -50,7 +57,7 @@ pub struct InitEscrowV1Ctx<'info> {
     /// The ATA for token fees to be stored
     #[account(
         init_if_needed,
-        payer = authority,
+        payer = admin,
         associated_token::mint = token,
         associated_token::authority = fee_location,
     )]
@@ -67,7 +74,7 @@ pub fn handler_init_escrow_v1(ctx: Context<InitEscrowV1Ctx>, ix: InitEscrowV1Ix)
         crate::ID,
         escrow,
         &ctx.accounts.system_program.to_account_info(),
-        &ctx.accounts.authority.to_account_info(),
+        &ctx.accounts.admin.to_account_info(),
         EscrowV1::BASE_ESCROW_SIZE + ix.name.len() + ix.uri.len(),
         &[
             "escrow".as_bytes(),
@@ -77,11 +84,12 @@ pub fn handler_init_escrow_v1(ctx: Context<InitEscrowV1Ctx>, ix: InitEscrowV1Ix)
     )?;
 
     let collection = &mut ctx.accounts.collection;
-    let authority = &mut ctx.accounts.authority;
+    let admin_state = &mut ctx.accounts.admin_state;
+    let admin = &mut ctx.accounts.admin;
     let token = &mut ctx.accounts.token;
     let fee_location = &mut ctx.accounts.fee_location;
 
-    // We can't allow the max to be less than the min.
+    // // We can't allow the max to be less than the min.
     if ix.max <= ix.min {
         return Err(MplHybridError::MaxMustBeGreaterThanMin.into());
     }
@@ -97,7 +105,7 @@ pub fn handler_init_escrow_v1(ctx: Context<InitEscrowV1Ctx>, ix: InitEscrowV1Ix)
         BaseCollectionV1::from_bytes(&collection.to_account_info().data.borrow())?;
 
     // Check that the collection authority is the same as the escrow authority.
-    if collection_data.update_authority != authority.key() {
+    if collection_data.update_authority != admin_state.key() {
         return Err(MplHybridError::InvalidCollectionAuthority.into());
     }
 
@@ -106,7 +114,7 @@ pub fn handler_init_escrow_v1(ctx: Context<InitEscrowV1Ctx>, ix: InitEscrowV1Ix)
     escrow_data.extend(
         EscrowV1 {
             collection: collection.key(),
-            authority: authority.key(),
+            authority: admin_state.key(),
             token: token.key(),
             fee_location: fee_location.key(),
             name: ix.name,

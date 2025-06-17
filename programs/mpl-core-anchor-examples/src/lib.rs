@@ -24,8 +24,16 @@ pub mod mpl_core_anchor_wrapper {
         initialize_admin::InitializeAdmin::handler(ctx, args)
     }
 
+    pub fn init_escrow_v1(ctx: Context<InitEscrowV1Ctx>, ix: InitEscrowV1Ix) -> Result<()> {
+        init_escrow::handler_init_escrow_v1(ctx, ix)
+    }
+
     pub fn create_v1(ctx: Context<CreateV1>, args: CreateV1Args) -> Result<()> {
         create_v1::CreateV1::handler(ctx, args)
+    }
+
+    pub fn release_v1(ctx: Context<ReleaseV1Ctx>) -> Result<()> {
+        release::handler_release_v1(ctx)
     }
 
     pub fn create_v1_with_vault_pda(

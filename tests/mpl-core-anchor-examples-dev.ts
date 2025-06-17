@@ -4,6 +4,10 @@ import { MplCoreAnchorWrapper } from "../target/types/mpl_core_anchor_wrapper";
 import {
   createInitializeMintInstruction,
   TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  getOrCreateAssociatedTokenAccount,
+  createMint,
+  mintTo,
 } from "@solana/spl-token";
 import {
   Connection,
@@ -62,7 +66,7 @@ describe("mpl-core-anchor-examples", () => {
 
     const connection = anchor.getProvider().connection;
     // Generate keypairs
-    const mint = anchor.web3.Keypair.generate();
+    // const mint = anchor.web3.Keypair.generate();
     const treasury = anchor.web3.Keypair.generate();
     const user = anchor.web3.Keypair.generate();
 
@@ -79,33 +83,83 @@ describe("mpl-core-anchor-examples", () => {
     // Airdrop SOL to payer and treasury
     const payer = provider.wallet.publicKey;
 
-    await connection.requestAirdrop(payer, 2 * anchor.web3.LAMPORTS_PER_SOL);
-    await connection.requestAirdrop(
+    let airdropSig = await connection.requestAirdrop(
+      payer,
+      2 * anchor.web3.LAMPORTS_PER_SOL
+    );
+    await connection.confirmTransaction(airdropSig, "confirmed");
+    airdropSig = await connection.requestAirdrop(
       user.publicKey,
       anchor.web3.LAMPORTS_PER_SOL * 100
     );
-    await connection.requestAirdrop(
+    await connection.confirmTransaction(airdropSig, "confirmed");
+    airdropSig = await connection.requestAirdrop(
       treasury.publicKey,
       anchor.web3.LAMPORTS_PER_SOL
     );
+    await connection.confirmTransaction(airdropSig, "confirmed");
 
-    // Create mint account
-    const mintRent = await connection.getMinimumBalanceForRentExemption(82);
-    const createMintIx = anchor.web3.SystemProgram.createAccount({
-      fromPubkey: payer,
-      newAccountPubkey: mint.publicKey,
-      space: 82,
-      lamports: mintRent,
-      programId: TOKEN_PROGRAM_ID,
-    });
-    const initMintIx = createInitializeMintInstruction(
-      mint.publicKey,
-      0,
-      payer,
-      null
+    // // Create mint account
+    // const mintRent = await connection.getMinimumBalanceForRentExemption(82);
+    // const createMintIx = anchor.web3.SystemProgram.createAccount({
+    //   fromPubkey: payer,
+    //   newAccountPubkey: mint.publicKey,
+    //   space: 82,
+    //   lamports: mintRent,
+    //   programId: TOKEN_PROGRAM_ID,
+    // });
+    // const initMintIx = createInitializeMintInstruction(
+    //   mint.publicKey,
+    //   0,
+    //   payer,
+    //   null
+    // );
+    // const txMint = new anchor.web3.Transaction().add(createMintIx, initMintIx);
+    // await provider.sendAndConfirm(txMint, [mint]);
+
+    const mint = await createMint(
+      provider.connection,
+      user,
+      user.publicKey,
+      null,
+      0
     );
-    const txMint = new anchor.web3.Transaction().add(createMintIx, initMintIx);
-    await provider.sendAndConfirm(txMint, [mint]);
+
+    // Token accounts
+    const userTokenAccount = await getOrCreateAssociatedTokenAccount(
+      provider.connection,
+      user, // payer
+      mint,
+      user.publicKey
+    );
+    // const escrowTokenAccount = await getOrCreateAssociatedTokenAccount(
+    //   provider.connection,
+    //   owner,
+    //   mint,
+    //   collection.publicKey // using collection as escrow owner for PDA
+    // );
+    // const feeTokenAccount = await getOrCreateAssociatedTokenAccount(
+    //   provider.connection,
+    //   owner,
+    //   mint,
+    //   feeProjectAccount.publicKey
+    // );
+
+    console.log(
+      user,
+      mint,
+      userTokenAccount.address,
+      anchor.getProvider().publicKey
+    );
+    // Mint tokens to user
+    await mintTo(
+      provider.connection,
+      user,
+      mint,
+      userTokenAccount.address,
+      user,
+      100
+    );
 
     // Call initializeAdmin
     await program.methods
@@ -118,7 +172,7 @@ describe("mpl-core-anchor-examples", () => {
         withdrawAvailableAfter: new anchor.BN(60 * 60 * 24 * 7), // 7 days
       })
       .accountsPartial({
-        mint: mint.publicKey,
+        mint: mint,
         vault: vaultPda,
         adminState: adminStatePda,
         treasury: treasury.publicKey,
@@ -139,7 +193,7 @@ describe("mpl-core-anchor-examples", () => {
       adminState.withdrawAvailableAfter.toNumber(),
       60 * 60 * 24 * 7
     );
-    assert.ok(adminState.tokenMint.equals(mint.publicKey));
+    assert.ok(adminState.tokenMint.equals(mint));
     assert.ok(adminState.admin.equals(payer));
     assert.ok(adminState.treasury.equals(treasury.publicKey));
     console.log("AdminState:", adminState);
@@ -252,7 +306,7 @@ describe("mpl-core-anchor-examples", () => {
       .stake({
         stakingPeriod: new anchor.BN(86400 * 100),
         riskType: 0,
-        instructionData
+        instructionData,
       })
       .accountsPartial({
         owner: user.publicKey,
@@ -274,5 +328,93 @@ describe("mpl-core-anchor-examples", () => {
 
     // Attributes are usually stored in plugins, so:
     console.log("Attributes:", assetInfo.attributes);
+
+    //init escrow
+    const feeLocation = anchor.web3.Keypair.generate();
+
+    // Derive escrow PDA
+    const [escrowPda, escrowBump] =
+      anchor.web3.PublicKey.findProgramAddressSync(
+        [Buffer.from("escrow"), collection.publicKey.toBuffer()],
+        program.programId
+      );
+
+    // Derive fee ATA
+    const feeAta = await anchor.utils.token.associatedAddress({
+      mint: mint,
+      owner: feeLocation.publicKey,
+    });
+    // const feeAta = anchor.utils.token.associatedAddress({
+    //   mint: mint.publicKey,
+    //   owner: feeLocation.publicKey,
+    // });
+
+    // Prepare ix data
+    const ix = {
+      name: "Test Escrow",
+      uri: "https://example.com/escrow",
+      max: new anchor.BN(1000),
+      min: new anchor.BN(10),
+      amount: new anchor.BN(100),
+      feeAmount: new anchor.BN(5),
+      solFeeAmount: new anchor.BN(10000),
+      path: 1,
+    };
+
+    await program.methods
+      .initEscrowV1(ix)
+      .accountsPartial({
+        escrow: escrowPda,
+        admin: anchor.getProvider().publicKey,
+        adminState: adminStatePda,
+        collection: collection.publicKey,
+        token: mint,
+        feeLocation: feeLocation.publicKey,
+        feeAta: feeAta,
+        systemProgram: SystemProgram.programId,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+      })
+      .signers([])
+      .rpc();
+
+    // Fetch and check escrow account
+    const escrowAccount = await provider.connection.getAccountInfo(escrowPda);
+    // assert.ok(escrowAccount !== null, "Escrow account should exist");
+    console.log("Escrow account data:", escrowAccount);
+
+    // // release
+    // await program.methods
+    //   .releaseV1()
+    //   .accountsPartial({
+    //     owner: user.publicKey,
+    //     authority: adminStatePda,
+    //     escrow: escrowPda,
+    //     asset: asset.publicKey,
+    //     collection: collection.publicKey,
+    //     userTokenAccount: userTokenAccount.address,
+    //     escrowTokenAccount: escrowTokenAccount.address,
+    //     token: mint,
+    //     feeTokenAccount: feeTokenAccount.address,
+    //     feeSolAccount: feeSolAccount.publicKey,
+    //     feeProjectAccount: feeProjectAccount.publicKey,
+    //     recentBlockhashes: recentBlockhashes,
+    //     mplCore: mplCore,
+    //     systemProgram: SystemProgram.programId,
+    //     tokenProgram: TOKEN_PROGRAM_ID,
+    //     associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+    //   })
+    //   .signers([owner, authority])
+    //   .rpc();
+
+    // // Fetch and check user token account balance
+    // const userTokenAcc = await connection.getTokenAccountBalance(
+    //   userTokenAccount.address
+    // );
+    // assert.ok(
+    //   Number(userTokenAcc.value.amount) > 0,
+    //   "User should have received tokens"
+    // );
+    // console.log("User token account balance:", userTokenAcc.value.amount);
   });
 });
