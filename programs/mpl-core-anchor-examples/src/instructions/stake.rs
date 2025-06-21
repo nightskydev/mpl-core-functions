@@ -8,11 +8,7 @@ use anchor_lang::solana_program::{program::invoke_signed, system_instruction};
 use mpl_core::{
     accounts::{BaseAssetV1, BaseCollectionV1},
     fetch_plugin,
-    instructions::{
-        AddPluginV1CpiBuilder,
-        UpdatePluginV1CpiBuilder,
-        ExecuteV1CpiBuilder
-    },
+    instructions::{AddPluginV1CpiBuilder, ExecuteV1CpiBuilder, UpdatePluginV1CpiBuilder},
     types::{
         Attribute, Attributes, FreezeDelegate, Plugin, PluginAuthority, PluginType, UpdateAuthority,
     },
@@ -49,6 +45,7 @@ pub struct Stake<'info> {
     )]
     pub collection: Account<'info, BaseCollectionV1>,
     /// CHECK: This is the treasury wallet that will receive rewards
+    #[account(mut)]
     pub treasury: UncheckedAccount<'info>,
     #[account(address = MPL_CORE_ID)]
     /// CHECK: this will be checked by core
@@ -179,7 +176,7 @@ impl<'info> Stake<'info> {
             .init_authority(PluginAuthority::UpdateAuthority)
             .invoke_signed(&[admin_state_seeds])?;
 
-        let (pda, _bump) = Pubkey::find_program_address(
+        let (pda, asset_signer_bump) = Pubkey::find_program_address(
             &[
                 PREFIX.as_bytes(),
                 ctx.accounts.asset.to_account_info().key().as_ref(),
@@ -196,7 +193,13 @@ impl<'info> Stake<'info> {
             &ctx.accounts.treasury.key,
             1000,
         );
-        
+
+        let asset_signer_seeds: &[&[u8]] = &[
+            PREFIX.as_bytes(),
+            ctx.accounts.asset.to_account_info().key.as_ref(),
+            &[asset_signer_bump],
+        ];
+
         // let instruction_data = instruction.data.try_to_vec().unwrap();
         // let mut data = ExecuteV1InstructionData::new().try_to_vec().unwrap();
         // let mut __args = ExecuteV1InstructionArgs {
@@ -218,9 +221,9 @@ impl<'info> Stake<'info> {
             .program_id(&ctx.accounts.system_program.to_account_info())
             .instruction_data(instruction.data)
             // .add_remaining_account(&ctx.accounts.asset_signer, true, false)
-            .add_remaining_account(&ctx.accounts.owner, true, true)
+            // .add_remaining_account(&ctx.accounts.owner, true, true)
             .add_remaining_account(&ctx.accounts.treasury, true, false)
-            .invoke()?;
+            .invoke_signed(&[asset_signer_seeds])?;
 
         // ExecuteV1Cpi {
         //     asset: &ctx.accounts.asset.to_account_info(),
